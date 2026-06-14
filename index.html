@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="he" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Letter Flight 3D — Part 1</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0a1830;font-family:Arial,'Segoe UI',sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;}
+  #app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  #stage{position:relative;width:100%;height:100%;max-width:620px;max-height:100%;background:#000;overflow:hidden;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+
+  /* ---------- menu ---------- */
+  #menu{position:absolute;inset:0;z-index:50;overflow-y:auto;
+    background:linear-gradient(180deg,#2a6fd6 0%,#7fc0ff 42%,#cfe9ff 55%,#8fd07a 56%,#5aa84e 100%);
+    display:flex;flex-direction:column;align-items:center;gap:11px;padding:18px 16px 28px;}
+  #menu h1{color:#0b3d7c;font-size:27px;text-shadow:0 2px 0 rgba(255,255,255,.7);letter-spacing:.5px;}
+  #menu .sub{color:#0b3d7c;font-weight:bold;opacity:.9;font-size:13px;text-align:center;line-height:1.45;}
+  #bigstart{padding:13px 42px;border-radius:999px;border:4px solid #fff;font-size:24px;font-weight:1000;color:#fff;flex:none;
+    background:linear-gradient(180deg,#46c25a,#1f8f37);box-shadow:0 5px 0 #11602a,0 8px 14px rgba(0,0,0,.25);animation:pulse 1.6s infinite;}
+  #bigstart:active{transform:translateY(4px);box-shadow:0 1px 0 #11602a;}
+  @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
+  .sethead{font-weight:1000;font-size:12px;color:#0b3d7c;background:rgba(255,255,255,.8);border-radius:999px;padding:4px 16px;flex:none;}
+  .grid{display:grid;grid-template-columns:repeat(5,52px);gap:8px;}
+  .lv{width:52px;height:52px;border-radius:14px;border:3px solid #fff;font-size:18px;font-weight:1000;color:#fff;position:relative;
+    background:linear-gradient(180deg,#4aa3e8,#2176c7);box-shadow:0 3px 0 #145a9e;}
+  .lv.lock{background:linear-gradient(180deg,#b8c4cf,#8b98a5);box-shadow:0 3px 0 #6b7884;font-size:15px;}
+  .lv.cur{animation:cur 1.3s infinite;}
+  @keyframes cur{0%,100%{outline:4px solid rgba(255,210,74,.95);outline-offset:1px;}50%{outline:4px solid rgba(255,210,74,0);outline-offset:8px;}}
+  .lv .st{position:absolute;left:0;right:0;bottom:-9px;font-size:8px;letter-spacing:-1px;text-align:center;text-shadow:0 1px 1px rgba(0,0,0,.3);}
+  .planes{display:flex;gap:8px;}
+  .pl{width:60px;height:56px;border-radius:14px;border:3px solid #fff;font-size:26px;background:rgba(255,255,255,.6);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 3px 0 rgba(0,0,0,.18);position:relative;}
+  .pl.sel{background:#ffd24a;box-shadow:0 3px 0 #c79a1f;}
+  .pl.lock{opacity:.55;}
+  .pl small{font-size:8px;font-weight:1000;color:#444;line-height:1;}
+  .pl .lk{position:absolute;right:-4px;bottom:-4px;font-size:12px;}
+  #btnmp{padding:10px 18px;border-radius:14px;border:3px solid #fff;font-size:15px;font-weight:1000;color:#fff;
+    background:linear-gradient(180deg,#4aa3e8,#2176c7);box-shadow:0 4px 0 #145a9e;}
+  #btnmp:active{transform:translateY(3px);box-shadow:0 1px 0 #145a9e;}
+  #cloudpill{padding:8px 16px;border-radius:999px;border:3px solid #fff;font-size:13px;font-weight:1000;color:#fff;}
+  #devbtn{position:absolute;left:0;bottom:0;width:60px;height:60px;background:transparent;border:0;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;top:0;left:0;right:0;z-index:20;display:none;flex-direction:column;gap:5px;padding:8px 8px 0;pointer-events:none;}
+  #hudrow{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .pill{background:rgba(255,255,255,.9);border:3px solid #2176c7;border-radius:999px;padding:4px 10px;font-weight:1000;color:#0b3d7c;font-size:15px;box-shadow:0 2px 0 rgba(0,0,0,.15);white-space:nowrap;}
+  #tgt{font-size:21px;min-width:80px;text-align:center;}
+  #timerwrap{display:flex;align-items:center;gap:5px;}
+  #timerwrap .ico{font-size:13px;}
+  #timerbar{height:9px;border-radius:999px;background:rgba(255,255,255,.45);overflow:hidden;border:2px solid rgba(255,255,255,.8);flex:1;}
+  #timerfill{height:100%;width:100%;background:linear-gradient(90deg,#7ce06a,#ffd24a,#ff9a1a);}
+  #spd{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;
+    background:rgba(15,22,38,.72);border:2px solid rgba(255,255,255,.55);border-radius:999px;color:#9fe8ff;
+    font-weight:1000;font-size:13px;padding:3px 12px;letter-spacing:1px;font-family:'Courier New',monospace;display:none;}
+  #flash{position:absolute;inset:0;z-index:15;pointer-events:none;opacity:0;}
+
+  /* ---------- controls ---------- */
+  #controls{position:absolute;inset:0;z-index:30;pointer-events:none;display:none;}
+  #wheel{position:absolute;left:50%;bottom:-128px;width:250px;height:250px;margin-left:-125px;border-radius:50%;pointer-events:auto;touch-action:none;
+    background:
+      radial-gradient(circle at 50% 50%, #555 0 25px, #333 26px 33px, transparent 34px),
+      conic-gradient(from 0deg, transparent 0 10deg, #3a3a3a 10deg 20deg, transparent 20deg 170deg, #3a3a3a 170deg 190deg, transparent 190deg 340deg, #3a3a3a 340deg 350deg, transparent 350deg),
+      radial-gradient(circle at 50% 50%, transparent 0 88px, #2b2b2b 89px 120px, #111 121px 126px, transparent 127px);
+    box-shadow:0 -4px 18px rgba(0,0,0,.45);}
+  #wheel::after{content:'';position:absolute;left:50%;top:10px;width:14px;height:26px;margin-left:-7px;border-radius:7px;background:#ffd24a;}
+  #tiltbtn{position:absolute;top:50%;left:50%;transform:translate(-50%,-100%);width:62px;height:50px;border-radius:14px;pointer-events:auto;touch-action:none;z-index:3;
+    background:rgba(255,255,255,.92);border:3px solid #2176c7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    box-shadow:0 3px 0 rgba(0,0,0,.2);opacity:.85;}
+  #tiltbtn small{font-size:9px;font-weight:1000;color:#0b3d7c;letter-spacing:1px;}
+  #tiltbtn.on{opacity:1;background:#ffd24a;}
+
+  /* vertical pitch joystick (right) */
+  #joy{position:absolute;right:14px;bottom:128px;width:64px;height:188px;border-radius:34px;pointer-events:auto;touch-action:none;
+    background:linear-gradient(180deg,rgba(40,60,90,.5),rgba(20,34,56,.6));border:3px solid rgba(255,255,255,.7);box-shadow:0 3px 0 rgba(0,0,0,.25);}
+  #joy .lbl{position:absolute;left:0;right:0;text-align:center;font-size:11px;font-weight:1000;color:#cfe6ff;}
+  #joy .up{top:6px;}#joy .dn{bottom:6px;}
+  #joythumb{position:absolute;left:6px;right:6px;height:54px;top:calc(50% - 27px);border-radius:26px;
+    background:radial-gradient(circle at 50% 35%,#9fd2ff,#3a86d4);border:3px solid #fff;box-shadow:0 3px 0 rgba(0,0,0,.3);
+    display:flex;align-items:center;justify-content:center;font-size:20px;color:#0b3d7c;font-weight:1000;}
+
+  /* throttle (left) */
+  #thr{position:absolute;left:14px;bottom:128px;width:52px;height:188px;border-radius:18px;pointer-events:auto;touch-action:none;
+    background:rgba(255,255,255,.28);border:3px solid rgba(255,255,255,.7);box-shadow:0 3px 0 rgba(0,0,0,.18);overflow:hidden;}
+  #thrfill{position:absolute;left:0;right:0;bottom:0;height:45%;background:linear-gradient(180deg,#7ce06a,#2f9e43);}
+  #thrthumb{position:absolute;left:-3px;right:-3px;height:16px;bottom:calc(45% - 8px);background:#fff;border:3px solid #2176c7;border-radius:8px;box-shadow:0 2px 0 rgba(0,0,0,.2);}
+  #thrlbl{position:absolute;left:0;right:0;top:5px;text-align:center;font-size:10px;font-weight:1000;color:#0b3d7c;}
+
+  #homebtn{position:absolute;top:66px;left:10px;width:42px;height:42px;border-radius:50%;pointer-events:auto;touch-action:none;z-index:31;
+    background:rgba(255,255,255,.85);border:3px solid #2176c7;font-size:19px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 0 rgba(0,0,0,.15);}
+
+  @media (orientation:landscape) and (max-height:520px){
+    #wheel{width:184px;height:184px;margin-left:-92px;bottom:-92px;}
+    #joy,#thr{height:150px;bottom:96px;}
+    #joythumb{height:46px;top:calc(50% - 23px);}
+    #spd{top:52px;}
+    .pill{font-size:12px;padding:3px 8px;}#tgt{font-size:16px;min-width:62px;}
+  }
+
+  /* ---------- overlays ---------- */
+  #endov{position:absolute;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:rgba(8,24,48,.55);}
+  #endcard{background:#fff;border:5px solid #2176c7;border-radius:22px;padding:24px 28px;text-align:center;display:flex;flex-direction:column;gap:12px;max-width:84%;}
+  #endtitle{font-size:26px;font-weight:1000;color:#0b3d7c;}
+  #endstats{font-size:17px;font-weight:bold;color:#333;}
+  #endunlock{font-size:15px;font-weight:1000;color:#b07000;display:none;}
+  .endbtn{padding:12px 18px;border-radius:14px;border:3px solid #fff;font-size:18px;font-weight:1000;color:#fff;background:linear-gradient(180deg,#4aa3e8,#2176c7);box-shadow:0 4px 0 #145a9e;}
+  .endbtn:active{transform:translateY(3px);box-shadow:0 1px 0 #145a9e;}
+  .grey{background:linear-gradient(180deg,#9aa7b5,#6c7a89)!important;box-shadow:0 4px 0 #4d5864!important;}
+  .ov{position:absolute;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:rgba(8,24,48,.6);}
+  .ovcard{background:#fff;border:5px solid #2176c7;border-radius:22px;padding:20px 22px;text-align:center;display:flex;flex-direction:column;gap:10px;max-width:86%;}
+  .ovcard input{padding:10px;border-radius:12px;border:3px solid #2176c7;font-size:18px;font-weight:1000;text-align:center;}
+</style>
+</head>
+<body>
+<div id="app"><div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="flash"></div>
+
+  <div id="hud">
+    <div id="hudrow">
+      <div class="pill" id="lvlpill">L1</div>
+      <div class="pill" id="tgt">תפוס: בּ</div>
+      <div class="pill" id="score">✅ 0/9 &nbsp; ❌ 0</div>
+    </div>
+    <div id="timerwrap"><div class="ico">⏱️</div><div id="timerbar"><div id="timerfill"></div></div></div>
+  </div>
+  <div id="spd">0</div>
+
+  <div id="controls">
+    <button id="homebtn" type="button">🏠</button>
+    <div id="wheel"><button id="tiltbtn" type="button">
+      <svg width="38" height="26" viewBox="0 0 40 30"><circle cx="20" cy="16" r="11" fill="none" stroke="#0b3d7c" stroke-width="3"/><line x1="20" y1="5" x2="20" y2="10" stroke="#0b3d7c" stroke-width="3"/><rect x="16" y="10.5" width="8" height="12" rx="2" fill="#ffd24a" stroke="#0b3d7c" stroke-width="2"/></svg>
+      <small>TILT</small></button></div>
+    <div id="thr"><div id="thrfill"></div><div id="thrthumb"></div><div id="thrlbl">THR</div></div>
+    <div id="joy"><div class="lbl up">▲ UP</div><div id="joythumb">✈</div><div class="lbl dn">DN ▼</div></div>
+  </div>
+
+  <div id="menu">
+    <h1>✈️ Letter Flight 3D</h1>
+    <div class="sub">תפוס את האותיות הנכונות, תתחמק מהלא נכונות!<br><b>Take off, fly the canyon, then land on the runway. ✈️</b></div>
+    <button id="bigstart" type="button">▶ START</button>
+    <div class="sethead">חלק 1 · Part 1 — Fly &amp; Collect</div>
+    <div class="grid" id="lv1"></div>
+    <div class="sethead">חלק 2 · Part 2 — Combat (locked)</div>
+    <div class="grid" id="lv2"></div>
+    <div class="sethead">המטוס שלך · Your plane</div>
+    <div class="planes" id="planerow"></div>
+    <button id="btnmp" type="button">🌐 Fly together (2–4 devices)</button>
+    <button id="cloudpill" type="button"></button>
+    <button id="devbtn" type="button" aria-hidden="true"></button>
+  </div>
+
+  <div id="endov"><div id="endcard">
+    <div id="endtitle">🎉</div>
+    <div id="endstats"></div>
+    <div id="endunlock">🎉 NEW PLANE UNLOCKED!</div>
+    <button class="endbtn" id="endmain" type="button">Next level ▶</button>
+    <button class="endbtn grey" id="endhome" type="button">🏠 Menu</button>
+  </div></div>
+
+  <div class="ov" id="cloudov"><div class="ovcard">
+    <div style="font-size:21px;font-weight:1000;color:#0b3d7c;">☁️ Cloud Save</div>
+    <div style="font-size:13px;font-weight:bold;color:#555;">Pick a name — use the SAME name on every device and your unlocked levels follow you. No password.</div>
+    <input id="cloudname" maxlength="20" placeholder="e.g. roni-2026" />
+    <div style="display:flex;gap:8px;">
+      <button class="endbtn" id="cloudsave" type="button" style="flex:1;">💾 Save</button>
+      <button class="endbtn" id="cloudsyncnow" type="button" style="flex:1;">🔄 Sync</button>
+    </div>
+    <div id="cloudstatus" style="font-size:13px;font-weight:bold;color:#333;min-height:32px;white-space:pre-line;"></div>
+    <button class="endbtn grey" id="cloudclose" type="button">✖ Close</button>
+  </div></div>
+
+  <div class="ov" id="mpov"><div class="ovcard" style="border-color:#1f8f37;">
+    <div style="font-size:21px;font-weight:1000;color:#0b3d7c;">🌐 Fly together (2–4)</div>
+    <div id="mpforms" style="display:flex;flex-direction:column;gap:10px;">
+      <div id="mpstatus" style="font-size:14px;font-weight:bold;color:#333;min-height:36px;white-space:pre-line;">One pilot creates a room, friends type the code to join.</div>
+      <button class="endbtn" id="mpcreate" type="button">🟢 Create room</button>
+      <div style="display:flex;gap:8px;">
+        <input id="mpcode" maxlength="4" placeholder="CODE" style="flex:1;min-width:0;text-transform:uppercase;letter-spacing:4px;" />
+        <button class="endbtn" id="mpjoin" type="button">Join ▶</button>
+      </div>
+    </div>
+    <div id="mplobby" style="display:none;flex-direction:column;gap:9px;">
+      <div style="font-size:13px;font-weight:bold;color:#555;">Room code:</div>
+      <div id="mpcodebig" style="font-size:30px;font-weight:1000;letter-spacing:6px;color:#1f8f37;">----</div>
+      <div id="mplist" style="font-size:14px;font-weight:1000;color:#345;min-height:40px;"></div>
+      <button class="endbtn" id="mpstart" type="button" disabled style="background:linear-gradient(180deg,#46c25a,#1f8f37);box-shadow:0 4px 0 #11602a;">▶ START</button>
+    </div>
+    <button class="endbtn grey" id="mpback" type="button">🏠 Back</button>
+  </div></div>
+
+</div></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(function(){
+'use strict';
+/* ============================================================
+   LETTER FLIGHT 3D — Part 1
+   Take off, fly a 3D canyon catching correct Hebrew letters and
+   dodging wrong ones (left/right AND up/down), thread cliffs,
+   then land on the runway.  Built on the rules of Letter Drive 3D.
+   ============================================================ */
+
+var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+var W=0,H=0,DPR=1,FOCAL=500,BASE=0;
+function resize(){
+  var st=document.getElementById('stage');
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  W=st.clientWidth; H=st.clientHeight;
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  FOCAL=W*0.95;
+  BASE=H*0.50;
+}
+window.addEventListener('resize',resize); resize();
+
+/* ---- the letter pairs (same idea as the racing game) ---- */
+var letterPairs=[['בּ','ב'],['כּ','כ'],['פּ','פ'],['תּ','ת'],['שׁ','שׂ'],['וֹ','וּ']];
+function glyphDraw(g,x,y,fs){
+  var base=g.charAt(0);
+  ctx.fillText(base,x,y);
+  if(g.length<2)return;
+  var dot=fs*0.10;
+  for(var i=1;i<g.length;i++){
+    var mk=g.charCodeAt(i);
+    if(mk===0x05BC){var dx=(base==='ו')?-fs*0.21:0;ctx.beginPath();ctx.arc(x+dx,y+fs*0.05,dot,0,7);ctx.fill();}
+    else if(mk===0x05C1){ctx.beginPath();ctx.arc(x+fs*0.30,y-fs*0.40,dot,0,7);ctx.fill();}
+    else if(mk===0x05C2){ctx.beginPath();ctx.arc(x-fs*0.30,y-fs*0.40,dot,0,7);ctx.fill();}
+    else if(mk===0x05B9){ctx.beginPath();ctx.arc(x-fs*0.05,y-fs*0.50,dot,0,7);ctx.fill();}
+  }
+}
+
+/* ---- hangar (planes unlock every 3 levels) ---- */
+var PLANES=[
+  {emoji:'🛩️',name:'Trainer',body:'#e8edf2',wing:'#c4ccd6',unlock:0, hand:1.00, spd:1.00},
+  {emoji:'✈️',name:'Jet',    body:'#5db4f5',wing:'#2a7fd4',unlock:3, hand:1.10, spd:1.10},
+  {emoji:'🛫',name:'Falcon', body:'#ffcc1a',wing:'#e0a40e',unlock:6, hand:1.18, spd:1.18},
+  {emoji:'🚀',name:'Rocket', body:'#b06bff',wing:'#7a3fd0',unlock:9, hand:1.28, spd:1.30}
+];
+
+/* ---- progress / save (own keys so it never clashes with the racing game) ---- */
+var best=0,planeIdx=0,dev=false,stars=[];
+try{
+  best=parseInt(localStorage.getItem('lf3_best')||'0',10)||0;
+  planeIdx=parseInt(localStorage.getItem('lf3_plane')||'0',10)||0;
+  dev=localStorage.getItem('lf3_dev')==='1';
+  stars=JSON.parse(localStorage.getItem('lf3_stars')||'[]')||[];
+}catch(e){stars=[];}
+if(!PLANES[planeIdx]||PLANES[planeIdx].unlock>best)planeIdx=0;
+function starsOf(n){return stars[n]|0;}
+function setStars(n,s){if(s>(stars[n]|0))stars[n]=s;}
+function saveProg(){
+  try{
+    localStorage.setItem('lf3_best',''+best);localStorage.setItem('lf3_plane',''+planeIdx);
+    localStorage.setItem('lf3_dev',dev?'1':'0');localStorage.setItem('lf3_stars',JSON.stringify(stars));
+  }catch(e){}
+  cloudPush();
+}
+
+/* ============================================================
+   WORLD CONSTANTS
+   ============================================================ */
+var NEAR=10;          /* near clip (world units) */
+var FAR=1300;         /* how far ahead we draw */
+var XMAX=60;          /* lateral half-corridor */
+var YFLR=4, YCEIL=98; /* altitude the plane may occupy in flight */
+var VMIN=92;          /* never slower than this while airborne */
+var CATCHZ=4;         /* resolve an object when it reaches the plane */
+var RUN_W=22;         /* runway half width-ish */
+
+/* per-level difficulty */
+function levelCfg(n){
+  var t=Math.min(1,(n-1)/9);
+  return {
+    level:n,
+    pair:letterPairs[(n-1)%letterPairs.length],
+    need:8+n,                              /* 9 .. 18 correct letters */
+    timeMax:Math.round(78+n*5),
+    speedMax:Math.round(196+n*7),          /* faster each level */
+    gateGap:Math.round(34-t*15),           /* canyon gap shrinks 34 -> 19 */
+    gateEvery:Math.round(360-t*150),       /* gates come closer together */
+    gateVert:t,                            /* how often gates demand climb/dive */
+    wrongLow:0.35+t*0.45,                  /* density of wrong letters down low */
+    extraWrong:t,                          /* chance a correct letter is flanked by wrong ones */
+    boss:(n===10)
+  };
+}
+
+/* ============================================================
+   3D PROJECTION
+   project() returns PRE-ROLL screen coords (relative to W/2, BASE).
+   Banking (roll) is applied to the whole world via a canvas rotate,
+   so the horizon tilts exactly like a real banking plane.
+   ============================================================ */
+var G=null,raf=0,lastT=0;
+
+function project(wx,wy,wz){
+  var dx=wx-G.x, dy=wy-G.y, dz=wz-G.z;
+  /* yaw (subtle, follows the bank for a little parallax) */
+  var cy=Math.cos(G.yaw), sy=Math.sin(G.yaw);
+  var x1=dx*cy - dz*sy;
+  var z1=dx*sy + dz*cy;
+  /* pitch (nose up/down) */
+  var cp=Math.cos(G.pitch), sp=Math.sin(G.pitch);
+  var y1=dy*cp - z1*sp;
+  var z2=dy*sp + z1*cp;
+  if(z2<NEAR)return null;
+  var inv=FOCAL/z2;
+  return {x:W/2 + x1*inv, y:BASE - y1*inv, z:z2, s:inv};
+}
+function horizonY(){ return BASE + FOCAL*Math.tan(G.pitch); }
+
+/* ============================================================
+   NEW GAME / SPAWNING
+   ============================================================ */
+function newGame(level,mode){
+  var cfg=levelCfg(level);
+  G={
+    mode:mode||'1p', level:level, cfg:cfg,
+    target:cfg.pair[0], distract:cfg.pair[1],
+    phase:'takeoff',
+    x:0,y:0,z:0, vx:0,vy:0, speed:0,
+    bank:0, pitch:0, yaw:0,
+    throttle:0.45,
+    got:0, need:cfg.need, wrong:0, streak:0, glowT:0,
+    time:cfg.timeMax, timeMax:cfg.timeMax, elapsed:0,
+    ents:[], parts:[], flyups:[], ranges:makeRanges(level),
+    nextLetter:300, nextGate:520, nextPeak:160,
+    runEndZ:520,                 /* takeoff runway length */
+    landZ:0, goAround:0,
+    liftMsgT:0, over:false, msg:'', msgT:0, shake:0,
+    mp:null
+  };
+  /* lay down some scenic side peaks for the opening view */
+  for(var z=200;z<FAR;z+=90)spawnPeak(z);
+  updateHUD();
+}
+
+/* deterministic-ish background ranges per level (colour shifts with level) */
+function makeRanges(level){
+  var tier = level<=3 ? 0 : (level<=6 ? 1 : 2);
+  var hue=[ ['#6f8fb8','#9fb6d6'], ['#7a93b0','#a7bcd6'], ['#86796f','#b3a79c'] ][tier];
+  return [
+    {col:'#bcd0e6', amp:0.10, base:0.16, par:0.018, seed:11},
+    {col:'#9fbad8', amp:0.16, base:0.24, par:0.040, seed:31},
+    {col:hue[0],    amp:0.24, base:0.34, par:0.075, seed:57}
+  ];
+}
+
+function spawnPeak(z){
+  var side=Math.random()<0.5?-1:1;
+  var x=side*(XMAX+26+Math.random()*120);
+  G.ents.push({k:'peak', z:z, x:x, h:34+Math.random()*44, hw:24+Math.random()*30,
+    snow:Math.random()<0.6, col:Math.random()<0.5?'#7d8a73':'#8a7f72', done:false});
+}
+
+function spawnGate(z){
+  var c=G.cfg;
+  var r=Math.random();
+  var gate;
+  if(r < 0.55 || c.gateVert<0.15){
+    /* SIDE gate: two cliff walls with a gap to thread left/right */
+    var gx=(Math.random()*2-1)*(XMAX-c.gateGap-8);
+    gate={k:'gate',type:'side', z:z, gx:gx, gap:c.gateGap, h:74+Math.random()*22, done:false};
+  }else if(r<0.78){
+    /* LOW wall: must CLIMB over it */
+    var top=22+Math.random()*16+c.gateVert*10;
+    gate={k:'gate',type:'low', z:z, top:top, done:false};
+  }else{
+    /* HIGH rocks hanging down: must DIVE under */
+    var bot=58-Math.random()*14-c.gateVert*8;
+    gate={k:'gate',type:'high', z:z, bot:bot, done:false};
+  }
+  G.ents.push(gate);
+}
+
+function spawnLetters(z){
+  var c=G.cfg;
+  /* one correct letter, placed anywhere in the canyon (forces up/down + left/right) */
+  var lx=(Math.random()*2-1)*(XMAX*0.74);
+  var ly=YFLR+6+Math.random()*(YCEIL-YFLR-14);
+  G.ents.push({k:'let', z:z, x:lx, y:ly, correct:true, glyph:G.target, ph:Math.random()*6, done:false});
+  /* sometimes flank it with a wrong letter just beside/below it */
+  if(Math.random()<0.35+c.extraWrong*0.4){
+    G.ents.push({k:'let', z:z+40, x:lx+(Math.random()<0.5?-1:1)*(11+Math.random()*8),
+      y:Math.max(YFLR+3,ly-6+Math.random()*12), correct:false, glyph:G.distract, ph:Math.random()*6, done:false});
+  }
+  /* the valley floor is full of wrong letters: dive low and they swarm you */
+  if(Math.random()<c.wrongLow){
+    var wx=(Math.random()*2-1)*(XMAX*0.8);
+    G.ents.push({k:'let', z:z+90+Math.random()*120, x:wx, y:YFLR+2+Math.random()*16,
+      correct:false, glyph:G.distract, ph:Math.random()*6, done:false});
+  }
+}
+
+function spawnAhead(){
+  if(G.phase==='takeoff')return; /* world starts after lift-off */
+  var ahead=G.z+FAR;
+  while(G.nextLetter<ahead){ spawnLetters(G.nextLetter); G.nextLetter+=Math.max(150,260-G.level*8)*(0.8+Math.random()*0.5); }
+  while(G.nextGate<ahead){ spawnGate(G.nextGate); G.nextGate+=G.cfg.gateEvery*(0.85+Math.random()*0.35); }
+  while(G.nextPeak<ahead){ spawnPeak(G.nextPeak); G.nextPeak+=70+Math.random()*60; }
+  if(G.ents.length>420)G.ents=G.ents.filter(function(e){return e.z>G.z-160;});
+}
+
+/* ============================================================
+   AUDIO (engine hum + chimes)
+   ============================================================ */
+var AC=null,SND=null;
+function ensureAudio(){
+  try{
+    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==='suspended')AC.resume();
+    if(SND)return;
+    SND={};
+    SND.osc=AC.createOscillator();SND.osc.type='triangle';SND.osc.frequency.value=70;
+    SND.lp=AC.createBiquadFilter();SND.lp.type='lowpass';SND.lp.frequency.value=420;
+    SND.g=AC.createGain();SND.g.gain.value=0;
+    SND.osc.connect(SND.lp);SND.lp.connect(SND.g);SND.g.connect(AC.destination);SND.osc.start();
+  }catch(e){}
+}
+function audioFrame(){
+  if(!SND)return;
+  var run=G&&!G.over;
+  var r=run?G.speed/G.cfg.speedMax:0;
+  SND.osc.frequency.value=58+150*r;
+  SND.g.gain.value=run?(0.010+0.045*r):0;
+}
+function beep(good){
+  try{ensureAudio();var o=AC.createOscillator(),g=AC.createGain();o.connect(g);g.connect(AC.destination);
+    o.frequency.value=good?880:165;o.type=good?'sine':'square';
+    g.gain.setValueAtTime(0.12,AC.currentTime);g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.25);
+    o.start();o.stop(AC.currentTime+0.26);}catch(e){}
+}
+function chord(freqs){
+  try{ensureAudio();freqs.forEach(function(f,i){var o=AC.createOscillator(),g=AC.createGain();o.connect(g);g.connect(AC.destination);
+    o.frequency.value=f;o.type='sine';var t0=AC.currentTime+i*0.06;
+    g.gain.setValueAtTime(0.001,t0);g.gain.linearRampToValueAtTime(0.10,t0+0.02);g.gain.exponentialRampToValueAtTime(0.001,t0+0.22);
+    o.start(t0);o.stop(t0+0.24);});}catch(e){}
+}
+
+/* ============================================================
+   EFFECTS
+   ============================================================ */
+function flash(col){var f=document.getElementById('flash');f.style.background=col;f.style.opacity='1';
+  f.style.transition='none';requestAnimationFrame(function(){f.style.transition='opacity .35s';f.style.opacity='0';});}
+function addParts(x,y,n,col,spread){
+  for(var i=0;i<n;i++)G.parts.push({x:x+(Math.random()-0.5)*spread,y:y+(Math.random()-0.5)*spread,
+    vx:(Math.random()-0.5)*180,vy:(Math.random()-0.5)*180,life:0.4+Math.random()*0.3,r:2+Math.random()*3,col:col});
+}
+function flyup(sx,sy,glyph){G.flyups.push({sx:sx,sy:sy,tx:W*0.62,ty:30,t:0,glyph:glyph});}
+
+function goodCatch(sx,sy){
+  G.got++;G.streak++;G.time=Math.min(G.timeMax,G.time+4);
+  flyup(sx,sy,G.target);
+  if(G.streak>0&&G.streak%3===0){G.got++;G.glowT=1.4;G.msg='🔥 x'+G.streak+' +1';G.msgT=1.0;chord([660,880,1100]);}
+  else{G.msg='✅';G.msgT=0.5;}
+  flash('rgba(60,200,90,.4)');beep(true);
+  addParts(sx,sy,8,'rgba(120,230,120,.9)',24);
+  updateHUD();
+  if(G.got>=G.need&&G.phase==='flight')beginLanding();
+}
+function badHit(){
+  G.wrong++;G.need+=1;G.streak=0;G.speed*=0.7;G.shake=7;
+  G.msg='❌';G.msgT=0.6;flash('rgba(230,60,50,.5)');beep(false);updateHUD();
+}
+function crash(){
+  G.shake=14;G.speed*=0.45;G.streak=0;G.time-=4;
+  flash('rgba(255,120,40,.6)');beep(false);
+  G.msg='💥 הר! +אותיות לא נכונות';G.msgT=1.1;
+  /* hitting a mountain dumps a burst of wrong letters in front of you */
+  for(var i=0;i<4;i++)G.ents.push({k:'let', z:G.z+120+i*90,
+    x:(Math.random()*2-1)*(XMAX*0.7), y:YFLR+4+Math.random()*30,
+    correct:false, glyph:G.distract, ph:Math.random()*6, done:false});
+  G.wrong++;updateHUD();
+}
+
+/* ============================================================
+   PHYSICS / STEP
+   ============================================================ */
+var MAXBANK=0.42, MAXPITCH=0.26;
+function step(dt){
+  G.elapsed+=dt;
+  var c=G.cfg;
+  var steer=steerInput();            /* -1 .. 1 */
+  var pitchIn=pitchInput();          /* +1 up (climb) .. -1 down (dive) */
+  var thr=G.throttle;                /* 0 .. 1 */
+
+  if(G.phase==='takeoff'){
+    /* ----- runway take-off ----- */
+    var accel=150;
+    G.speed+=accel*(0.4+thr)*dt;
+    G.speed=Math.max(0,G.speed);
+    G.z+=G.speed*dt;
+    /* gentle nose/heading from the wheel even on the ground */
+    G.bank+=(steer*0.18 - G.bank)*Math.min(1,4*dt);
+    G.x+=(steer*16)*dt*Math.min(1,G.speed/120); G.x=Math.max(-RUN_W+3,Math.min(RUN_W-3,G.x));
+    var VROT=96;
+    var wantUp=pitchIn>0.25;
+    G.liftMsgT-=dt;
+    if(G.speed>VROT && (wantUp || G.z>G.runEndZ-120)){
+      /* lift off! */
+      G.phase='flight'; G.vy=26; G.pitch=0.16;
+      G.nextLetter=G.z+260; G.nextGate=G.z+460; G.nextPeak=G.z+120;
+      G.msg='🛫 Airborne!';G.msgT=1.0;
+    }else if(G.speed<=VROT && G.z>G.runEndZ-260){
+      G.msg='⏫ Pull up! (hold UP)';G.msgT=0.4;
+    }else if(G.speed<40){
+      G.msg='⛽ Hold throttle to speed up';G.msgT=0.4;
+    }
+    stepCommon(dt);
+    return;
+  }
+
+  /* ----- airborne (flight + landing share the same flight model) ----- */
+  var spr=G.speed/c.speedMax;
+  var hand=PLANES[planeIdx].hand;
+
+  /* bank eases toward the wheel — this is the delay you feel */
+  G.bank+=(steer*MAXBANK - G.bank)*Math.min(1,3.4*hand*dt);
+  /* a banked plane turns: lateral velocity builds AFTER the bank (extra delay) */
+  var vxT=(G.bank/MAXBANK)*46*(0.55+0.6*spr);
+  G.vx+=(vxT-G.vx)*Math.min(1,2.4*dt);
+  G.x+=G.vx*dt; G.x=Math.max(-XMAX,Math.min(XMAX,G.x));
+  if(Math.abs(G.x)>=XMAX)G.vx*=0.4;
+
+  /* pitch eases toward the joystick */
+  G.pitch+=(pitchIn*MAXPITCH - G.pitch)*Math.min(1,4*hand*dt);
+  var vyT=(G.pitch/MAXPITCH)*40;
+  G.vy+=(vyT-G.vy)*Math.min(1,2.6*dt);
+  G.y+=G.vy*dt;
+  if(G.y<YFLR){G.y=YFLR;G.vy=Math.max(0,G.vy);}
+  if(G.y>YCEIL){G.y=YCEIL;G.vy=Math.min(0,G.vy);}
+
+  /* subtle yaw for parallax */
+  G.yaw+=(G.bank*0.16 - G.yaw)*Math.min(1,4*dt);
+
+  /* speed eases toward throttle target */
+  var sTar=VMIN+thr*(c.speedMax-VMIN);
+  G.speed+=(sTar-G.speed)*Math.min(1,1.3*dt);
+  G.speed=Math.max(VMIN*0.6,G.speed);
+  G.z+=G.speed*dt;
+
+  spawnAhead();
+  resolve(dt);
+
+  if(G.phase==='landing')landingCheck();
+
+  stepCommon(dt);
+
+  /* time pressure */
+  G.time-=dt;
+  if(G.time<=0 && !G.over)endRun(false);
+}
+
+function stepCommon(dt){
+  for(var i=G.parts.length-1;i>=0;i--){var p=G.parts[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;if(p.life<=0)G.parts.splice(i,1);}
+  for(var f=G.flyups.length-1;f>=0;f--){G.flyups[f].t+=dt;if(G.flyups[f].t>=0.6)G.flyups.splice(f,1);}
+  if(G.glowT>0)G.glowT-=dt;
+  if(G.msgT>0)G.msgT-=dt;
+  if(G.shake>0)G.shake=Math.max(0,G.shake-12*dt);
+  document.getElementById('timerfill').style.width=Math.max(0,G.time/G.timeMax*100)+'%';
+  document.getElementById('spd').textContent=Math.round(G.speed*0.9)+' kt  ·  '+Math.round(G.y)+' alt';
+}
+
+/* resolve objects as they reach the plane */
+function resolve(dt){
+  for(var i=0;i<G.ents.length;i++){
+    var e=G.ents[i];
+    if(e.done)continue;
+    if(e.z-G.z>CATCHZ)continue;          /* not at the plane yet */
+    e.done=true;
+    if(e.k==='let'){
+      var dxl=Math.abs(G.x-e.x), dyl=Math.abs(G.y-e.y);
+      if(dxl<8 && dyl<8){
+        var pr=project(e.x,e.y,G.z+12);
+        var sx=pr?pr.x:W/2, sy=pr?pr.y:H*0.6;
+        if(e.correct)goodCatch(sx,sy); else badHit();
+      }
+    }else if(e.k==='gate'){
+      var hit=false;
+      if(e.type==='side'){ hit=Math.abs(G.x-e.gx)>(e.gap-2); }
+      else if(e.type==='low'){ hit=G.y < e.top+1; }
+      else if(e.type==='high'){ hit=G.y > e.bot-1; }
+      if(hit)crash();
+      else{G.msg='✓';G.msgT=0.3;}
+    }
+    /* peaks are scenery — no collision */
+  }
+}
+
+/* ============================================================
+   TAKE-OFF complete -> LANDING
+   ============================================================ */
+function beginLanding(){
+  G.phase='landing';
+  G.landZ=G.z+1500;
+  /* clear gates near the approach so the runway is reachable */
+  for(var i=0;i<G.ents.length;i++)if(G.ents[i].k==='gate'&&G.ents[i].z>G.z+300&&G.ents[i].z<G.landZ+400)G.ents[i].done=true;
+  G.msg='🛬 כל האותיות! נְחַת על המסלול';G.msgT=2.2;
+}
+function landingCheck(){
+  if(G.z<G.landZ-60)return;            /* not at threshold yet */
+  if(G.z>G.landZ+30){                  /* flew past it */
+    goAround();return;
+  }
+  var aligned=Math.abs(G.x)<9, low=G.y<6, slow=G.speed<128, level=Math.abs(G.bank)<0.18;
+  if(aligned&&low&&slow&&level){
+    G.speed*=0.6; endRun(true);
+  }else if(G.z>=G.landZ){
+    goAround();
+  }
+}
+function goAround(){
+  G.goAround++;
+  G.landZ=G.z+1500;
+  G.msg='↩️ GO AROUND — line up, slow down, descend';G.msgT=2.0;
+  if(G.y<20){G.y=24;G.vy=18;}          /* bump back up so they can re-approach */
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render(){
+  var shx=Math.sin(G.elapsed*46)*G.shake*0.8, shy=Math.cos(G.elapsed*39)*G.shake*0.5;
+  ctx.save(); ctx.translate(shx,shy);
+
+  /* ---- WORLD (rotated by bank so the horizon tilts) ---- */
+  ctx.save();
+  ctx.translate(W/2,BASE); ctx.rotate(G.bank); ctx.translate(-W/2,-BASE);
+
+  drawSkyGround();
+  drawRanges();
+  drawRunways();
+  drawWorldObjects();
+
+  ctx.restore(); /* end world rotation */
+
+  /* ---- player plane + screen FX (upright) ---- */
+  drawPlane();
+  drawParts();
+  drawFlyups();
+  drawCenterMsg();
+
+  ctx.restore(); /* end shake */
+}
+
+function drawSkyGround(){
+  var hY=horizonY();
+  var night=false;
+  var sky=ctx.createLinearGradient(0,hY-H,0,hY);
+  sky.addColorStop(0,'#3f86d6'); sky.addColorStop(0.7,'#8fc4f2'); sky.addColorStop(1,'#cfe8ff');
+  ctx.fillStyle=sky; ctx.fillRect(-2*W,hY-3*H,5*W,3*H+2);
+  /* sun + clouds */
+  ctx.fillStyle='rgba(255,244,200,.95)';ctx.beginPath();ctx.arc(W*0.74,hY-H*0.46,26,0,7);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.85)';
+  for(var i=0;i<3;i++){var cx=((G.z*0.02)+i*240)%(W+260)-130, cyy=hY-H*(0.30+i*0.12);
+    ctx.beginPath();ctx.ellipse(cx,cyy,46,15,0,0,7);ctx.fill();}
+  /* ground (valley) */
+  var gnd=ctx.createLinearGradient(0,hY,0,hY+H);
+  gnd.addColorStop(0,'#7fae5f'); gnd.addColorStop(1,'#4d7e3c');
+  ctx.fillStyle=gnd; ctx.fillRect(-2*W,hY,5*W,3*H);
+  /* a winding river hint on the floor */
+  ctx.strokeStyle='rgba(90,150,210,.5)';ctx.lineWidth=Math.max(3,FOCAL*0.01);
+  var rp=project(Math.sin(G.z*0.002)*18,0,G.z+FAR*0.6);
+  var rp2=project(Math.sin((G.z+400)*0.002)*18,0,G.z+260);
+  if(rp&&rp2){ctx.beginPath();ctx.moveTo(rp.x,rp.y);ctx.lineTo(rp2.x,rp2.y);ctx.stroke();}
+}
+
+function ridgeH(layer,x){
+  var s=layer.seed;
+  return (layer.base + layer.amp*(0.5+0.5*Math.sin(x*0.6+s)) + layer.amp*0.4*Math.sin(x*1.7+s*2))*H;
+}
+function drawRanges(){
+  var hY=horizonY();
+  for(var li=0;li<G.ranges.length;li++){
+    var L=G.ranges[li];
+    var off=-G.x*L.par;
+    ctx.fillStyle=L.col; ctx.beginPath();
+    var x0=-W; ctx.moveTo(x0,hY+4);
+    for(var sx=x0;sx<=2*W;sx+=22){
+      var u=(sx)/W*3 + off;
+      ctx.lineTo(sx,hY-ridgeH(L,u));
+    }
+    ctx.lineTo(2*W,hY+4); ctx.closePath(); ctx.fill();
+  }
+}
+
+/* draws both the take-off runway (under you) and the landing runway (ahead) */
+function drawRunways(){
+  if(G.phase==='takeoff') drawRunwayStrip(G.z-40, G.runEndZ+200);
+  if(G.phase==='landing') drawRunwayStrip(G.landZ, G.landZ+520, true);
+}
+function drawRunwayStrip(z0,z1,approach){
+  /* build from z-slices so the near edge never crosses the camera */
+  var step=18, prev=null, started=false;
+  for(var z=Math.max(z0,G.z+NEAR+1); z<=z1; z+=step){
+    var l=project(-RUN_W,0,z), r=project(RUN_W,0,z);
+    if(!l||!r){prev=null;continue;}
+    if(prev){
+      ctx.fillStyle=(Math.floor(z/40)%2===0)?'#3a3f47':'#33373e';
+      ctx.beginPath();ctx.moveTo(prev.l.x,prev.l.y);ctx.lineTo(prev.r.x,prev.r.y);
+      ctx.lineTo(r.x,r.y);ctx.lineTo(l.x,l.y);ctx.closePath();ctx.fill();
+      /* centre dashes */
+      if(Math.floor(z/40)%2===0){
+        var cl=project(-1.4,0,z),cr=project(1.4,0,z),pl=project(-1.4,0,z-step),prr=project(1.4,0,z-step);
+        if(cl&&cr&&pl&&prr){ctx.fillStyle='rgba(255,235,120,.9)';ctx.beginPath();
+          ctx.moveTo(pl.x,pl.y);ctx.lineTo(prr.x,prr.y);ctx.lineTo(cr.x,cr.y);ctx.lineTo(cl.x,cl.y);ctx.closePath();ctx.fill();}
+      }
+    }
+    prev={l:l,r:r};
+  }
+  /* approach lights leading to the landing runway */
+  if(approach){
+    for(var az=G.landZ-360; az<G.landZ; az+=45){
+      var a=project(0,0.5,az); if(!a)continue;
+      var blink=(Math.floor((G.landZ-az)/45 + G.elapsed*6)%2===0);
+      ctx.fillStyle=blink?'#fff':'rgba(255,255,255,.25)';
+      ctx.beginPath();ctx.arc(a.x,a.y,Math.max(2,a.s*1.6),0,7);ctx.fill();
+    }
+    /* big green threshold bar */
+    var tl=project(-RUN_W,0.4,G.landZ),tr=project(RUN_W,0.4,G.landZ);
+    if(tl&&tr){ctx.strokeStyle='#39d36a';ctx.lineWidth=Math.max(3,tl.s*2.2);
+      ctx.beginPath();ctx.moveTo(tl.x,tl.y);ctx.lineTo(tr.x,tr.y);ctx.stroke();}
+  }
+}
+
+/* hash for jagged cliff tops */
+function hsh(i){var x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x);}
+
+function drawWorldObjects(){
+  /* sort far -> near so near things paint over far things */
+  var list=G.ents.filter(function(e){return !e.done && e.z>G.z+2 && e.z<G.z+FAR;});
+  list.sort(function(a,b){return b.z-a.z;});
+  for(var i=0;i<list.length;i++){
+    var e=list[i];
+    if(e.k==='peak')drawPeak(e);
+    else if(e.k==='gate')drawGate(e);
+    else if(e.k==='let')drawLetter(e);
+  }
+}
+
+function drawPeak(e){
+  var bl=project(e.x-e.hw,0,e.z), br=project(e.x+e.hw,0,e.z), ap=project(e.x,e.h,e.z);
+  if(!bl||!br||!ap)return;
+  ctx.fillStyle=e.col; ctx.beginPath();
+  ctx.moveTo(bl.x,bl.y);ctx.lineTo(ap.x,ap.y);ctx.lineTo(br.x,br.y);ctx.closePath();ctx.fill();
+  /* shaded right face */
+  ctx.fillStyle='rgba(0,0,0,.16)';ctx.beginPath();ctx.moveTo(ap.x,ap.y);ctx.lineTo(br.x,br.y);
+  ctx.lineTo((br.x+ap.x)/2,(br.y+ap.y)/2);ctx.closePath();ctx.fill();
+  if(e.snow){ctx.fillStyle='rgba(255,255,255,.92)';ctx.beginPath();
+    ctx.moveTo(ap.x,ap.y);ctx.lineTo(ap.x-(ap.x-bl.x)*0.28,ap.y+(bl.y-ap.y)*0.28);
+    ctx.lineTo(ap.x-(ap.x-br.x)*0.28,ap.y+(br.y-ap.y)*0.28);ctx.closePath();ctx.fill();}
+}
+
+function drawWall(x0,x1,yBottom,yTop,z,seedBase,col,colTop,jagTop){
+  /* a cliff face from yBottom..yTop spanning x0..x1; jagged on top (jagTop=true) or bottom */
+  var N=8, pts=[];
+  for(var i=0;i<=N;i++){
+    var x=x0+(x1-x0)*i/N;
+    var jag = jagTop ? yTop*(0.86+0.14*hsh(seedBase+i)) : yBottom*(0.86+0.14*hsh(seedBase+i));
+    pts.push({x:x, top:jagTop?jag:yTop, bot:jagTop?yBottom:jag});
+  }
+  ctx.fillStyle=col; ctx.beginPath();
+  var first=project(pts[0].x,pts[0].bot,z); if(!first)return;
+  ctx.moveTo(first.x,first.y);
+  for(var i2=1;i2<=N;i2++){var p=project(pts[i2].x,pts[i2].bot,z);if(p)ctx.lineTo(p.x,p.y);}
+  for(var i3=N;i3>=0;i3--){var p2=project(pts[i3].x,pts[i3].top,z);if(p2)ctx.lineTo(p2.x,p2.y);}
+  ctx.closePath();ctx.fill();
+  /* top/edge highlight (snow or rock light) */
+  ctx.strokeStyle=colTop;ctx.lineWidth=Math.max(2,(project(0,0,z).s)*2.2);
+  ctx.beginPath();
+  for(var i4=0;i4<=N;i4++){var pe=project(pts[i4].x, jagTop?pts[i4].top:pts[i4].bot, z);
+    if(pe){if(i4===0)ctx.moveTo(pe.x,pe.y);else ctx.lineTo(pe.x,pe.y);}}
+  ctx.stroke();
+}
+
+function drawGate(e){
+  if(e.type==='side'){
+    var left=e.gx-e.gap, right=e.gx+e.gap;
+    drawWall(-XMAX-30, left, 0, e.h, e.z, Math.floor(e.z*0.3), '#7c7268', 'rgba(255,255,255,.85)', true);
+    drawWall(right, XMAX+30, 0, e.h, e.z, Math.floor(e.z*0.3)+50, '#766c63', 'rgba(255,255,255,.85)', true);
+    /* glowing gap markers */
+    var ml=project(left,0,e.z), mr=project(right,0,e.z), mlt=project(left,e.h*0.7,e.z), mrt=project(right,e.h*0.7,e.z);
+    if(ml&&mlt){ctx.strokeStyle='rgba(120,220,255,.7)';ctx.lineWidth=Math.max(2,ml.s*1.6);
+      ctx.beginPath();ctx.moveTo(ml.x,ml.y);ctx.lineTo(mlt.x,mlt.y);ctx.stroke();}
+    if(mr&&mrt){ctx.beginPath();ctx.moveTo(mr.x,mr.y);ctx.lineTo(mrt.x,mrt.y);ctx.stroke();}
+  }else if(e.type==='low'){
+    drawWall(-XMAX-30, XMAX+30, 0, e.top, e.z, Math.floor(e.z*0.3), '#6f6a60', 'rgba(255,255,255,.8)', true);
+    var t=project(0,e.top,e.z); if(t){ctx.fillStyle='rgba(120,220,255,.9)';ctx.font='900 '+Math.max(11,t.s*9)+'px Arial';
+      ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText('▲ climb',t.x,t.y-2);}
+  }else if(e.type==='high'){
+    drawWall(-XMAX-30, XMAX+30, e.bot, YCEIL+30, e.z, Math.floor(e.z*0.3), '#5f5a52', 'rgba(210,210,220,.7)', false);
+    var b=project(0,e.bot,e.z); if(b){ctx.fillStyle='rgba(120,220,255,.9)';ctx.font='900 '+Math.max(11,b.s*9)+'px Arial';
+      ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('▼ dive',b.x,b.y+2);}
+  }
+}
+
+function drawLetter(e){
+  var pr=project(e.x,e.y,e.z); if(!pr||pr.y<horizonY()-40)return;
+  var r=Math.min(W*0.085,Math.max(9,pr.s*9));
+  var bob=Math.sin(G.elapsed*3+e.ph)*r*0.12;
+  var ex=pr.x, ey=pr.y+bob;
+  /* tether to the ground so altitude reads clearly */
+  var g=project(e.x,0,e.z);
+  if(g){ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=Math.max(1,r*0.06);
+    ctx.beginPath();ctx.moveTo(ex,ey+r);ctx.lineTo(g.x,g.y);ctx.stroke();}
+  /* bubble */
+  ctx.beginPath();ctx.arc(ex,ey,r,0,7);
+  ctx.fillStyle=e.correct?'#ffffff':'#ffe2e0'; ctx.fill();
+  ctx.lineWidth=Math.max(2,r*0.14);
+  ctx.strokeStyle=e.correct?'#2a7fd4':'#e25b4b'; ctx.stroke();
+  if(e.correct){var pu=0.5+0.5*Math.sin(G.elapsed*5+e.ph);
+    ctx.strokeStyle='rgba(255,210,70,'+(0.3+0.5*pu).toFixed(2)+')';ctx.lineWidth=Math.max(2,r*0.14);
+    ctx.beginPath();ctx.arc(ex,ey,r*(1.16+0.14*pu),0,7);ctx.stroke();}
+  /* glyph, counter-rotated so it stays upright while the world tilts */
+  ctx.save();ctx.translate(ex,ey);ctx.rotate(-G.bank);
+  ctx.fillStyle='#15263a';ctx.font='900 '+(r*1.18)+'px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+  glyphDraw(e.glyph,0,r*0.05,r*1.18);
+  ctx.restore();
+}
+
+/* the player's plane, chase view, banking + climbing */
+function drawPlane(){
+  var pal=PLANES[planeIdx];
+  var cx=W/2 + G.bank*42;
+  var climb=Math.max(-1,Math.min(1,G.vy/40));
+  var cy=H*(G.mode&&false?0.8:0.80) - climb*16;
+  var sz=Math.min(W*0.20,H*0.26);
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(-G.bank*0.55);
+  /* shadow on the ground far below */
+  ctx.restore();
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(-G.bank*0.55);
+  ctx.scale(1,0.78 - climb*0.18);
+  /* wings */
+  ctx.fillStyle=pal.wing;
+  ctx.beginPath();
+  ctx.moveTo(-sz*0.62,sz*0.04);ctx.lineTo(-sz*0.10,-sz*0.10);ctx.lineTo(-sz*0.10,sz*0.16);ctx.closePath();ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo( sz*0.62,sz*0.04);ctx.lineTo( sz*0.10,-sz*0.10);ctx.lineTo( sz*0.10,sz*0.16);ctx.closePath();ctx.fill();
+  /* tail fin */
+  ctx.fillStyle=pal.wing;
+  ctx.beginPath();ctx.moveTo(0,-sz*0.30);ctx.lineTo(-sz*0.10,-sz*0.02);ctx.lineTo(sz*0.10,-sz*0.02);ctx.closePath();ctx.fill();
+  /* fuselage */
+  ctx.fillStyle=pal.body;
+  ctx.beginPath();ctx.ellipse(0,sz*0.02,sz*0.13,sz*0.34,0,0,7);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(sz*0.05,sz*0.02,sz*0.05,sz*0.30,0,0,7);ctx.fill();
+  /* canopy */
+  ctx.fillStyle='rgba(120,200,255,.9)';ctx.beginPath();ctx.ellipse(0,-sz*0.06,sz*0.07,sz*0.12,0,0,7);ctx.fill();
+  /* engine glow when fast */
+  var spr=G.speed/G.cfg.speedMax;
+  if(spr>0.6){ctx.fillStyle='rgba(255,180,80,'+(0.3+0.4*Math.random())+')';
+    ctx.beginPath();ctx.ellipse(0,sz*0.36,sz*0.06,sz*0.10*spr,0,0,7);ctx.fill();}
+  ctx.restore();
+}
+
+function drawParts(){
+  for(var i=0;i<G.parts.length;i++){var p=G.parts[i];ctx.globalAlpha=Math.max(0,p.life*2);
+    ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();}
+  ctx.globalAlpha=1;
+}
+function drawFlyups(){
+  for(var i=0;i<G.flyups.length;i++){var f=G.flyups[i];var t=f.t/0.6;
+    var x=f.sx+(f.tx-f.sx)*t, y=f.sy+(f.ty-f.sy)*t, sc=1-0.4*t;
+    ctx.globalAlpha=1-t*0.7;ctx.fillStyle='#fff';ctx.strokeStyle='#2a7fd4';ctx.lineWidth=2;
+    var r=16*sc;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle='#15263a';ctx.font='900 '+(r*1.2)+'px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+    glyphDraw(f.glyph,x,y+r*0.05,r*1.2);}
+  ctx.globalAlpha=1;
+}
+function drawCenterMsg(){
+  if(G.phase==='takeoff'&&G.elapsed<3.2){
+    ctx.fillStyle='rgba(0,0,0,.4)';ctx.fillRect(W*0.5-120,H*0.34,240,46);
+    ctx.fillStyle='#fff';ctx.font='900 20px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('🛫 Hold throttle → take off!',W*0.5,H*0.34+23);
+  }
+  if(G.msgT>0&&G.msg){
+    ctx.globalAlpha=Math.min(1,G.msgT*2);
+    ctx.fillStyle='rgba(0,0,0,.42)';
+    ctx.font='900 26px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+    var w=ctx.measureText(G.msg).width+28;
+    ctx.fillRect(W/2-w/2,H*0.26-22,w,44);
+    ctx.fillStyle='#fff';ctx.fillText(G.msg,W/2,H*0.26);
+    ctx.globalAlpha=1;
+  }
+  /* landing helper: show alignment box */
+  if(G.phase==='landing'){
+    var ok=Math.abs(G.x)<9&&G.y<10&&G.speed<128;
+    ctx.strokeStyle=ok?'#39d36a':'#ffd24a';ctx.lineWidth=3;
+    ctx.strokeRect(W*0.5-70,H*0.16,140,30);
+    ctx.fillStyle=ok?'#39d36a':'#ffd24a';ctx.font='900 14px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText((Math.abs(G.x)<9?'⟷ ok':'⟷ center')+'  '+(G.speed<128?'· slow ok':'· slow down')+'  '+(G.y<10?'· low ok':'· descend'),W*0.5,H*0.16+15);
+  }
+}
+
+/* ============================================================
+   HUD
+   ============================================================ */
+function updateHUD(){
+  document.getElementById('lvlpill').textContent='L'+G.level+(G.cfg.boss?' 👑':'');
+  document.getElementById('tgt').innerHTML='תפוס: <span style="font-size:24px">'+G.target+'</span>';
+  document.getElementById('score').innerHTML='✅ '+G.got+'/'+G.need+' &nbsp; ❌ '+G.wrong;
+}
+
+/* ============================================================
+   RUN CONTROL
+   ============================================================ */
+function startLevel(n,mode){
+  ensureAudio();
+  newGame(n,mode);
+  document.getElementById('menu').style.display='none';
+  document.getElementById('endov').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('spd').style.display='block';
+  document.getElementById('controls').style.display='block';
+  /* phones default to tilt for left/right */
+  if(tiltSupported && ('ontouchstart' in window)){
+    var tp=null;try{tp=localStorage.getItem('lf3_tilt');}catch(e){}
+    if(tp!=='0')requestTilt(true);
+  }
+  setThrottleUI(0.45);
+  resize();
+  lastT=0;
+  if(!raf)raf=requestAnimationFrame(loop);
+}
+
+function endRun(pass){
+  if(G.over)return; G.over=true;
+  cancelAnimationFrame(raf);raf=0;audioFrame();
+  var unlocked=false, st=0;
+  if(pass){
+    st=1+(G.wrong<=2?1:0)+(G.wrong===0?1:0);
+    setStars(G.level,st);
+    var nb=Math.max(best,G.level);
+    if(nb>best){for(var i=0;i<PLANES.length;i++)if(PLANES[i].unlock>best&&PLANES[i].unlock<=nb)unlocked=true;best=nb;}
+    saveProg();
+  }
+  document.getElementById('endtitle').textContent=pass?(G.cfg.boss?'🏆 Part 1 complete!':'🛬 Nice landing!'):'⏱️ Out of time';
+  document.getElementById('endstats').innerHTML=
+    (pass?('<span style="font-size:26px;letter-spacing:2px;">'+'⭐'.repeat(st)+'<span style="opacity:.25;">'+'⭐'.repeat(3-st)+'</span></span><br>'):'')+
+    '✅ '+G.got+' / '+G.need+' &nbsp;&nbsp; ❌ '+G.wrong+(G.goAround?('<br><span style="font-size:13px;color:#777;">go-arounds: '+G.goAround+'</span>'):'');
+  document.getElementById('endunlock').style.display=unlocked?'block':'none';
+  var main=document.getElementById('endmain');
+  if(pass&&G.level<10){main.textContent='Next level ▶';main.onclick=function(){startLevel(G.level+1);};}
+  else if(pass){main.textContent='🏠 Menu';main.onclick=goHome;}
+  else{main.textContent='🔄 Try again';main.onclick=function(){startLevel(G.level);};}
+  document.getElementById('endov').style.display='flex';
+  if(SND)SND.g.gain.value=0;
+}
+function goHome(){
+  mpCleanup();
+  cancelAnimationFrame(raf);raf=0;G=null;
+  if(SND)SND.g.gain.value=0;
+  document.getElementById('endov').style.display='none';
+  document.getElementById('hud').style.display='none';
+  document.getElementById('spd').style.display='none';
+  document.getElementById('controls').style.display='none';
+  document.getElementById('menu').style.display='flex';
+  buildLevels();buildPlanes();
+}
+
+function loop(t){
+  raf=requestAnimationFrame(loop);
+  if(!lastT){lastT=t;return;}
+  var dt=Math.min(0.05,(t-lastT)/1000);lastT=t;
+  updateWheelVisual(dt);
+  if(G&&!G.over){
+    if(G.mode==='mp')stepMP(dt); else step(dt);
+    render();audioFrame();
+    if(G.mode==='mp')mpSend();
+  }
+}
+
+/* ============================================================
+   INPUT — wheel (left/right), joystick (up/down), throttle, tilt
+   ============================================================ */
+var wheelAngle=0;
+var input={wheelTouch:null};
+var tiltOn=false,tiltVal=0,tiltHasData=false,tiltBound=false,tiltHold=0;
+var tiltSupported=!!window.DeviceOrientationEvent;
+var joyVal=0, joyTouch=null;   /* +1 up .. -1 down */
+
+function steerInput(){ return Math.max(-1,Math.min(1,wheelAngle/120)); }
+function pitchInput(){ return joyVal; }
+
+function updateWheelVisual(dt){
+  if(tiltOn && input.wheelTouch==null && tiltHasData && Date.now()>tiltHold){
+    var tgt=Math.max(-120,Math.min(120,tiltVal*(120/30)));
+    wheelAngle+=(tgt-wheelAngle)*Math.min(1,12*dt);
+  }else if(!input.wheelTouch){
+    wheelAngle*=Math.pow(0.004,dt); if(Math.abs(wheelAngle)<0.4)wheelAngle=0;
+  }
+  wheelAngle=Math.max(-120,Math.min(120,wheelAngle));
+  document.getElementById('wheel').style.transform='rotate('+wheelAngle+'deg)';
+}
+
+/* steering wheel drag */
+(function(){
+  var el=document.getElementById('wheel');
+  function center(){var r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};}
+  function ang(px,py){var c=center();return Math.atan2(px-c.x,c.y-py)*180/Math.PI;}
+  el.addEventListener('pointerdown',function(e){e.preventDefault();ensureAudio();
+    input.wheelTouch={id:e.pointerId,sa:ang(e.clientX,e.clientY),sw:wheelAngle};
+    try{el.setPointerCapture(e.pointerId);}catch(_){}});
+  el.addEventListener('pointermove',function(e){var t=input.wheelTouch;if(!t||t.id!==e.pointerId)return;e.preventDefault();
+    var d=ang(e.clientX,e.clientY)-t.sa;if(d>180)d-=360;if(d<-180)d+=360;
+    wheelAngle=Math.max(-120,Math.min(120,t.sw+d));});
+  function up(e){var t=input.wheelTouch;if(t&&t.id===e.pointerId){input.wheelTouch=null;tiltHold=Date.now()+700;}}
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+})();
+
+/* vertical pitch joystick */
+(function(){
+  var el=document.getElementById('joy'),thumb=document.getElementById('joythumb');
+  function setFromY(clientY){
+    var r=el.getBoundingClientRect();
+    var rel=(clientY-r.top)/r.height;          /* 0 top .. 1 bottom */
+    var v=1-rel*2;                             /* +1 top(up) .. -1 bottom(down) */
+    joyVal=Math.max(-1,Math.min(1,v));
+    var pos=(0.5-joyVal/2)*100;
+    thumb.style.top='calc('+pos+'% - 27px)';
+  }
+  el.addEventListener('pointerdown',function(e){e.preventDefault();ensureAudio();joyTouch=e.pointerId;
+    try{el.setPointerCapture(e.pointerId);}catch(_){}setFromY(e.clientY);});
+  el.addEventListener('pointermove',function(e){if(joyTouch!==e.pointerId)return;e.preventDefault();setFromY(e.clientY);});
+  function up(e){if(joyTouch===e.pointerId){joyTouch=null;joyVal=0;thumb.style.top='calc(50% - 27px)';}}
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+})();
+
+/* throttle slider */
+function setThrottleUI(v){
+  v=Math.max(0,Math.min(1,v));
+  if(G)G.throttle=v;
+  document.getElementById('thrfill').style.height=(v*100)+'%';
+  document.getElementById('thrthumb').style.bottom='calc('+(v*100)+'% - 8px)';
+}
+(function(){
+  var el=document.getElementById('thr');
+  function setFromY(clientY){var r=el.getBoundingClientRect();var v=1-(clientY-r.top)/r.height;setThrottleUI(v);}
+  var id=null;
+  el.addEventListener('pointerdown',function(e){e.preventDefault();ensureAudio();id=e.pointerId;
+    try{el.setPointerCapture(e.pointerId);}catch(_){}setFromY(e.clientY);});
+  el.addEventListener('pointermove',function(e){if(id!==e.pointerId)return;e.preventDefault();setFromY(e.clientY);});
+  function up(e){if(id===e.pointerId)id=null;}
+  el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+})();
+
+/* tilt for left/right */
+function onTilt(e){
+  var a=(screen.orientation&&typeof screen.orientation.angle==='number')?screen.orientation.angle:(window.orientation||0);
+  var v; if(a===90)v=e.beta; else if(a===-90||a===270)v=-(e.beta||0); else v=e.gamma;
+  if(v==null)return; tiltVal=v; tiltHasData=true;
+}
+function enableTilt(){tiltOn=true;document.getElementById('tiltbtn').classList.add('on');
+  if(!tiltBound){window.addEventListener('deviceorientation',onTilt);tiltBound=true;}}
+function requestTilt(silent){
+  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission().then(function(s){
+      if(s==='granted'){enableTilt();try{localStorage.setItem('lf3_tilt','1');}catch(e){}}
+      else if(!silent)alert('Tilt steering needs motion access. You can still use the wheel.');
+    }).catch(function(){});
+  }else{enableTilt();try{localStorage.setItem('lf3_tilt','1');}catch(e){}}
+}
+document.getElementById('tiltbtn').addEventListener('click',function(e){
+  e.stopPropagation();
+  if(tiltOn){tiltOn=false;document.getElementById('tiltbtn').classList.remove('on');try{localStorage.setItem('lf3_tilt','0');}catch(_){}}
+  else requestTilt(false);
+});
+document.getElementById('homebtn').addEventListener('click',function(e){e.stopPropagation();goHome();});
+
+/* ============================================================
+   MENU BUILD
+   ============================================================ */
+function buildLevels(){
+  var g1=document.getElementById('lv1'); g1.innerHTML='';
+  for(var n=1;n<=10;n++){
+    var unlocked=dev||n<=best+1;
+    var b=document.createElement('button');
+    b.className='lv'+(unlocked?'':' lock')+((n===best+1&&!dev)?' cur':'');
+    b.textContent=unlocked?n:'🔒';
+    if(starsOf(n)>0){var s=document.createElement('div');s.className='st';s.textContent='⭐'.repeat(starsOf(n));b.appendChild(s);}
+    (function(nn,ok){b.addEventListener('click',function(){if(ok)startLevel(nn);else alert('🔒 Beat level '+(nn-1)+' first!');});})(n,unlocked);
+    g1.appendChild(b);
+  }
+  var g2=document.getElementById('lv2'); g2.innerHTML='';
+  for(var m=11;m<=20;m++){var b2=document.createElement('button');b2.className='lv lock';b2.textContent='🔒';
+    b2.addEventListener('click',function(){alert('✈️🎯 Part 2 — Combat is coming next: lock on and fire at letters from the cockpit. Finish Part 1 to be ready!');});
+    g2.appendChild(b2);}
+}
+function buildPlanes(){
+  var row=document.getElementById('planerow'); row.innerHTML='';
+  PLANES.forEach(function(p,i){
+    var unlocked=dev||p.unlock<=best;
+    var b=document.createElement('button');
+    b.className='pl'+(i===planeIdx?' sel':'')+(unlocked?'':' lock');
+    b.innerHTML='<div style="font-size:26px">'+p.emoji+'</div><small>'+p.name+'</small>'+(unlocked?'':'<div class="lk">🔒</div>');
+    (function(idx,ok,need){b.addEventListener('click',function(){
+      if(ok){planeIdx=idx;saveProg();buildPlanes();}
+      else alert('🔒 Unlocks at level '+need);
+    });})(i,unlocked,p.unlock);
+    row.appendChild(b);
+  });
+}
+document.getElementById('bigstart').addEventListener('click',function(){startLevel(dev?1:Math.min(10,best+1));});
+document.getElementById('devbtn').addEventListener('click',function(){
+  var v=prompt('\u05e7\u05d5\u05d3');
+  if(v!==null&&v.trim()==='770'){dev=!dev;saveProg();buildLevels();buildPlanes();alert(dev?'🔓 Dev mode — all unlocked':'🔒 Dev mode off');}
+});
+
+/* ============================================================
+   CLOUD SAVE (own folder, merge-only)
+   ============================================================ */
+var CLOUD_URL='https://kria-game-accounts-default-rtdb.firebaseio.com';
+var cloudName='';try{cloudName=localStorage.getItem('lf3_cloudname')||'';}catch(e){}
+var cloudTimer=0,cloudBusy=false;
+function cloudPath(){return CLOUD_URL+'/letterflight3d/'+encodeURIComponent(cloudName)+'.json';}
+function cloudStatus(s){document.getElementById('cloudstatus').textContent=s;}
+function updateCloudPill(){var pl=document.getElementById('cloudpill');
+  if(cloudName){pl.textContent='☁️ '+cloudName;pl.style.background='linear-gradient(180deg,#7ce06a,#2f9e43)';pl.style.boxShadow='0 4px 0 #1d6e2c';}
+  else{pl.textContent='⚠️ Not synced — tap to set a name';pl.style.background='linear-gradient(180deg,#ffb74d,#f57c00)';pl.style.boxShadow='0 4px 0 #b85c00';}}
+function cloudSync(showUi){
+  if(!cloudName||cloudBusy||typeof fetch==='undefined')return;cloudBusy=true;if(showUi)cloudStatus('Syncing…');
+  fetch(cloudPath()).then(function(r){return r.json();}).then(function(remote){
+    var rb=(remote&&remote.best)|0,changed=false;if(rb>best){best=rb;changed=true;}
+    var rs=(remote&&remote.stars)||[];for(var i=0;i<rs.length;i++)if((rs[i]|0)>(stars[i]|0)){stars[i]=rs[i]|0;changed=true;}
+    if(changed){try{localStorage.setItem('lf3_best',''+best);localStorage.setItem('lf3_stars',JSON.stringify(stars));}catch(e){}buildLevels();buildPlanes();}
+    return fetch(cloudPath(),{method:'PUT',body:JSON.stringify({best:best,stars:stars,updatedAt:Date.now()})});
+  }).then(function(){cloudBusy=false;if(showUi)cloudStatus('✅ Synced! Unlocked up to level '+Math.min(10,best+1));})
+   .catch(function(){cloudBusy=false;if(showUi)cloudStatus('⚠️ Could not reach the cloud. Check internet.');});
+}
+function cloudPush(){if(!cloudName)return;clearTimeout(cloudTimer);cloudTimer=setTimeout(function(){cloudSync(false);},2500);}
+document.getElementById('cloudpill').addEventListener('click',function(){document.getElementById('cloudov').style.display='flex';
+  document.getElementById('cloudname').value=cloudName;cloudStatus(cloudName?('Current: '+cloudName):'Pick a name — use the SAME name on every device.');});
+document.getElementById('cloudclose').addEventListener('click',function(){document.getElementById('cloudov').style.display='none';updateCloudPill();});
+document.getElementById('cloudsave').addEventListener('click',function(){
+  var n=(document.getElementById('cloudname').value||'').trim().toLowerCase();
+  if(!/^[a-z0-9\-_]{3,20}$/.test(n)){cloudStatus('⚠️ 3–20 chars: a-z, 0-9, - _');return;}
+  cloudName=n;try{localStorage.setItem('lf3_cloudname',n);}catch(e){}updateCloudPill();cloudStatus('Saved. Syncing…');cloudSync(true);});
+document.getElementById('cloudsyncnow').addEventListener('click',function(){if(!cloudName){cloudStatus('Set a name first 🙂');return;}cloudSync(true);});
+updateCloudPill();if(cloudName)setTimeout(function(){cloudSync(false);},1500);
+
+/* ============================================================
+   MULTIPLAYER (preview) — fly together, ghost planes loop & catch up
+   Mirrors the racing game's PeerJS approach. Needs HTTPS + internet.
+   ============================================================ */
+var MPLOOP=60000;
+var PCOL=['#e63946','#2a7fd4','#3fae5a','#ffc83d'];
+var MP={peer:null,conns:[],hostConn:null,isHost:false,myId:-1,players:[],code:'',started:false,seed:0,last:0};
+function mpStatus(s){document.getElementById('mpstatus').textContent=s;}
+function mpToggle(s){document.getElementById('mpov').style.display=s?'flex':'none';}
+function mpCleanup(){try{if(MP.hostConn)MP.hostConn.close();}catch(_){}
+  for(var i=0;i<MP.conns.length;i++){try{MP.conns[i].close();}catch(_){}}
+  try{if(MP.peer)MP.peer.destroy();}catch(_){}
+  MP.peer=null;MP.hostConn=null;MP.conns=[];MP.players=[];MP.isHost=false;MP.myId=-1;MP.started=false;MP.code='';
+  document.getElementById('mpforms').style.display='flex';document.getElementById('mplobby').style.display='none';}
+function mpCode(){var a='ABCDEFGHJKMNPQRSTUVWXYZ23456789',s='';for(var i=0;i<4;i++)s+=a[(Math.random()*a.length)|0];return s;}
+function mpBroadcast(m){for(var i=0;i<MP.conns.length;i++){try{MP.conns[i].send(m);}catch(_){}}}
+function mpRenderLobby(){
+  document.getElementById('mpforms').style.display='none';document.getElementById('mplobby').style.display='flex';
+  document.getElementById('mpcodebig').textContent=MP.code||'----';
+  var em=['🛩️','✈️','🛫','🚀'],h='';
+  for(var i=0;i<MP.players.length;i++){var p=MP.players[i];h+='<div>'+em[p.id%4]+' P'+(p.id+1)+(p.id===MP.myId?' (you)':'')+'</div>';}
+  document.getElementById('mplist').innerHTML=h||'<div style="opacity:.4">waiting…</div>';
+  document.getElementById('mpstart').disabled=!(MP.isHost&&MP.players.length>=2);
+}
+function mpCreate(){
+  if(typeof Peer==='undefined'){mpStatus('🌐 Needs the online version (your GitHub Pages link) + internet.');return;}
+  MP.isHost=true;MP.myId=0;MP.code=mpCode();MP.seed=(Math.random()*1e9)|0;MP.players=[{id:0,x:0,y:30,z:0,bank:0}];
+  mpStatus('Creating room…');
+  MP.peer=new Peer('lf3-'+MP.code,{debug:1});
+  MP.peer.on('open',function(){mpRenderLobby();});
+  MP.peer.on('error',function(){mpStatus('⚠️ Room error — try another code/refresh.');});
+  MP.peer.on('connection',function(conn){
+    conn.on('open',function(){
+      var id=MP.players.length;MP.conns.push(conn);MP.players.push({id:id,x:0,y:30,z:0,bank:0});
+      conn.send({t:'welcome',id:id,seed:MP.seed,code:MP.code});
+      mpBroadcast({t:'lobby',players:MP.players.map(function(p){return{id:p.id};})});
+      mpRenderLobby();
+    });
+    conn.on('data',function(d){
+      if(d.t==='pos'){var p=MP.players.filter(function(x){return x.id===d.id;})[0];if(p){p.x=d.x;p.y=d.y;p.z=d.z;p.bank=d.bank;}
+        mpBroadcast({t:'pos',id:d.id,x:d.x,y:d.y,z:d.z,bank:d.bank});}
+    });
+    conn.on('close',function(){MP.players=MP.players.filter(function(p){return p.id!==0||true;});mpRenderLobby();});
+  });
+}
+function mpJoin(){
+  var code=(document.getElementById('mpcode').value||'').trim().toUpperCase();
+  if(code.length!==4){mpStatus('Enter the 4-letter code.');return;}
+  if(typeof Peer==='undefined'){mpStatus('🌐 Needs the online version + internet.');return;}
+  MP.isHost=false;mpStatus('Joining '+code+'…');
+  MP.peer=new Peer(null,{debug:1});
+  MP.peer.on('open',function(){
+    var conn=MP.peer.connect('lf3-'+code,{reliable:true});MP.hostConn=conn;
+    conn.on('open',function(){});
+    conn.on('data',function(d){
+      if(d.t==='welcome'){MP.myId=d.id;MP.seed=d.seed;MP.code=d.code;mpRenderLobby();}
+      else if(d.t==='lobby'){MP.players=d.players.map(function(p){return{id:p.id,x:0,y:30,z:0,bank:0};});mpRenderLobby();}
+      else if(d.t==='pos'){var p=MP.players.filter(function(x){return x.id===d.id;})[0];if(p){p.x=d.x;p.y=d.y;p.z=d.z;p.bank=d.bank;}}
+      else if(d.t==='start'){mpToggle(false);startLevel(d.level,'mp');}
+    });
+    conn.on('error',function(){mpStatus('⚠️ Could not join — check the code/internet.');});
+  });
+  MP.peer.on('error',function(){mpStatus('⚠️ Could not join — check the code/internet.');});
+}
+function mpStart(){if(!MP.isHost)return;MP.started=true;var lvl=Math.min(10,best+1);mpBroadcast({t:'start',level:lvl});mpToggle(false);startLevel(lvl,'mp');}
+function stepMP(dt){ step(dt); }   /* each device flies its own world; others are ghosts */
+function mpSend(){
+  if(!G||G.mode!=='mp')return; var now=Date.now(); if(now-MP.last<80)return; MP.last=now;
+  var msg={t:'pos',id:MP.myId,x:G.x,y:G.y,z:G.z,bank:G.bank};
+  if(MP.isHost)mpBroadcast(msg); else if(MP.hostConn){try{MP.hostConn.send(msg);}catch(_){}}
+}
+/* draw ghost planes (called from drawWorldObjects-time if mp) */
+var _origDrawWorld=drawWorldObjects;
+drawWorldObjects=function(){
+  _origDrawWorld();
+  if(!G||G.mode!=='mp')return;
+  for(var i=0;i<MP.players.length;i++){var p=MP.players[i];if(p.id===MP.myId||p.z==null)continue;
+    var rel=((p.z-G.z)%MPLOOP+MPLOOP)%MPLOOP;        /* loop so a faster plane laps & reappears ahead */
+    if(rel<60||rel>FAR)continue;
+    var pr=project(p.x,p.y,G.z+rel);if(!pr)continue;
+    var sz=Math.max(10,pr.s*22);
+    ctx.save();ctx.translate(pr.x,pr.y);ctx.rotate(-p.bank*0.5);
+    ctx.fillStyle=PCOL[p.id%4];ctx.beginPath();ctx.ellipse(0,0,sz*0.5,sz*0.18,0,0,7);ctx.fill();
+    ctx.fillRect(-sz*0.55,-sz*0.05,sz*1.1,sz*0.1);
+    ctx.restore();
+    ctx.fillStyle='#fff';ctx.font='900 11px Arial';ctx.textAlign='center';ctx.fillText('P'+(p.id+1),pr.x,pr.y-sz*0.5);
+  }
+};
+document.getElementById('btnmp').addEventListener('click',function(){ensureAudio();mpStatus('One pilot creates a room, friends type the code to join.');mpToggle(true);});
+document.getElementById('mpcreate').addEventListener('click',mpCreate);
+document.getElementById('mpjoin').addEventListener('click',mpJoin);
+document.getElementById('mpstart').addEventListener('click',mpStart);
+document.getElementById('mpback').addEventListener('click',function(){mpCleanup();mpToggle(false);});
+document.getElementById('endhome').addEventListener('click',goHome);
+
+/* ---- boot ---- */
+buildLevels();buildPlanes();
+})();
+</script>
+</body>
+</html>
